@@ -84,8 +84,18 @@ public final class HUDPresentationCoordinator: HUDInteracting {
 
     // MARK: - Public actions (menu bar / global shortcuts)
 
+    public var isCurrentlyVisible: Bool { !instances.isEmpty }
+
     public func showManually() {
         apply(stateMachine.handle(.manualShow))
+    }
+
+    public func toggleVisibility() {
+        if isCurrentlyVisible {
+            dismissRequested()
+        } else {
+            showManually()
+        }
     }
 
     public func setAutomaticHUDEnabled(_ enabled: Bool) {

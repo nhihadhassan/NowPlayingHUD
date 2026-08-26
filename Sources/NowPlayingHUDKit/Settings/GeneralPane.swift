@@ -55,6 +55,9 @@ struct GeneralPane: View {
             }
         }
         .onAppear { launchAtLoginStatus = LaunchAtLoginController.status }
+        .onChange(of: preferences.playerSelectionMode) { _, newValue in
+            playback.selectionMode = newValue
+        }
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
