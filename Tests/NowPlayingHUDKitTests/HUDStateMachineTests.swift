@@ -51,7 +51,7 @@ func registerHUDStateMachineTests(on runner: TestRunner) {
             var machine = HUDStateMachine()
             _ = machine.handle(.significantChange)
             let actions = machine.handle(.pointerEntered)
-            try expect(actions == [.cancelDismissalTimer])
+            try expect(actions == [.cancelDismissalTimer, .cancelHoverGraceTimer])
             try expect(machine.phase == .shown(hovering: true))
         }
 
@@ -89,7 +89,7 @@ func registerHUDStateMachineTests(on runner: TestRunner) {
             _ = machine.handle(.pointerEntered)
             _ = machine.handle(.pointerExited) // grace timer conceptually running
             let actions = machine.handle(.pointerEntered) // pointer comes back before it fires
-            try expect(actions == [.cancelDismissalTimer])
+            try expect(actions == [.cancelDismissalTimer, .cancelHoverGraceTimer])
             try expect(machine.phase == .shown(hovering: true))
             // A stale grace timer firing after this should now be ignored.
             try expect(machine.handle(.hoverGraceTimerFired).isEmpty)

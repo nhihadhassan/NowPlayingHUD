@@ -70,7 +70,13 @@ public struct HUDStateMachine: Sendable, Equatable {
 
         case (.shown(hovering: false), .pointerEntered):
             phase = .shown(hovering: true)
-            return [.cancelDismissalTimer]
+            // Whichever timer was actually pending here — the dismissal timer (fresh
+            // presentation) or the hover-grace timer (re-entry after a prior exit) — both are
+            // safe, idempotent no-ops to cancel if they weren't the one running. The coordinator
+            // treats "cancel pending timers" as a single unit for exactly this reason: this
+            // phase is reachable via two different prior timers, which a two-state `hovering`
+            // flag alone can't distinguish.
+            return [.cancelDismissalTimer, .cancelHoverGraceTimer]
 
         case (.shown(hovering: false), .pointerExited):
             return [] // already not hovering — a redundant/stale exit event; nothing to do.
