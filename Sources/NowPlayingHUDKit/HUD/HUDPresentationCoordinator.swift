@@ -158,6 +158,19 @@ public final class HUDPresentationCoordinator: HUDInteracting {
         apply(stateMachine.handle(.manualDismiss))
     }
 
+    /// Set by whoever owns the menu bar (`MenuBarController`) so the HUD's own "Show Player"
+    /// context menu item can open the mini player popover without this type needing to know
+    /// anything about `NSStatusItem`/`NSPopover`.
+    public var onShowMiniPlayerRequested: (() -> Void)?
+
+    public func showMiniPlayerRequested() {
+        onShowMiniPlayerRequested?()
+    }
+
+    public func disableAutomaticHUDTemporarily() {
+        setTemporarilyDisabled(true)
+    }
+
     // MARK: - Playback events
 
     private func handle(_ event: PlaybackCoordinatorEvent) {

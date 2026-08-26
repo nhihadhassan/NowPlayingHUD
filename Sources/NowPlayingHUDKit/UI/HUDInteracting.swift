@@ -14,4 +14,6 @@ public protocol HUDInteracting: AnyObject {
     func hoverStateChanged(isHovering: Bool)
     func primaryClickTriggered()
     func dismissRequested()
+    func showMiniPlayerRequested()
+    func disableAutomaticHUDTemporarily()
 }

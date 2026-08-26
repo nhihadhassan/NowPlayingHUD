@@ -193,6 +193,9 @@ public struct HUDRootView: View {
         Button("Copy “\(content.track?.title ?? "Track") — \(content.track?.artist ?? "Artist")”") {
             interactor?.copyTrackAndArtist()
         }
+        Button("Show Player") { interactor?.showMiniPlayerRequested() }
+        Divider()
+        Button("Disable Automatic HUD Temporarily") { interactor?.disableAutomaticHUDTemporarily() }
         Divider()
         Button("Dismiss") { interactor?.dismissRequested() }
     }
