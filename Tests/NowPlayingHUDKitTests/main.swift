@@ -5,4 +5,5 @@ let runner = TestRunner.shared
 registerProgressEstimatorTests(on: runner)
 registerPlaybackSnapshotDedupTests(on: runner)
 registerProviderArbitrationTests(on: runner)
+registerPreferencesStoreTests(on: runner)
 runner.summarizeAndExit()
