@@ -1,0 +1,98 @@
+# XcodeGen project spec — generates a conventional NowPlayingHUD.xcodeproj for machines that have
+# full Xcode installed. This repository was built and verified with SwiftPM + the Makefile
+# instead (this machine has only Xcode's Command Line Tools — see README "Building"), so this
+# file is provided but not itself build-verified here. It mirrors the SwiftPM module boundary
+# (NowPlayingHUDKit as its own module, imported by both the app and the test tool) so `import
+# NowPlayingHUDKit` resolves the same way in both build systems.
+#
+# Usage (with Xcode installed):
+#   brew install xcodegen   # or any other install method — see github.com/yonaskolb/XcodeGen
+#   xcodegen generate
+#   open NowPlayingHUD.xcodeproj
+name: NowPlayingHUD
+options:
+  bundleIdPrefix: com.nowplayinghud
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  MARKETING_VERSION: "1.0.0"
+  CURRENT_PROJECT_VERSION: "1"
+  SWIFT_VERSION: "5.0"
+  CODE_SIGN_STYLE: Automatic
+  CODE_SIGN_IDENTITY: "-"
+  ENABLE_HARDENED_RUNTIME: NO
+
+targets:
+  NowPlayingHUDKit:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/NowPlayingHUDKit
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.nowplayinghud.kit
+      SWIFT_VERSION: "5.0"
+
+  NowPlayingHUD:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/NowPlayingHUD
+    dependencies:
+      - target: NowPlayingHUDKit
+        embed: true
+    info:
+      path: Resources/Info.plist.in
+      properties:
+        CFBundleName: NowPlayingHUD
+        CFBundleDisplayName: NowPlayingHUD
+        CFBundleIdentifier: com.nowplayinghud.app
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        CFBundleIconFile: AppIcon
+        LSMinimumSystemVersion: "14.0"
+        LSUIElement: true
+        NSAppleEventsUsageDescription: >
+          NowPlayingHUD needs permission to read the current track and send playback commands
+          (play, pause, skip, seek, volume) to Spotify and Apple Music. This happens entirely on
+          this Mac — no data is sent anywhere else.
+        NSHighResolutionCapable: true
+    entitlements:
+      path: Resources/NowPlayingHUD.entitlements
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.nowplayinghud.app
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    resources:
+      - path: Resources/AppIcon.icns
+        optional: true
+
+  # Not an XCTest bundle: as the comment in Tests/NowPlayingHUDKitTests/MiniTest.swift explains,
+  # this project uses a small dependency-free test harness with its own `main.swift`, run as a
+  # plain command-line tool (`swift run NowPlayingHUDKitTests` / `make test`) rather than through
+  # `swift test`/Xcode's Test Navigator — verified necessary on a Command-Line-Tools-only machine,
+  # where `swift test` built the XCTest-style bundle successfully but never actually executed it.
+  # In Xcode, build and run this target's scheme directly (Cmd-R) the same way you would the app;
+  # its output prints pass/fail for every test to the console.
+  NowPlayingHUDKitTests:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Tests/NowPlayingHUDKitTests
+    dependencies:
+      - target: NowPlayingHUDKit
+        embed: true
+    settings:
+      SWIFT_VERSION: "5.0"
+
+schemes:
+  NowPlayingHUD:
+    build:
+      targets:
+        NowPlayingHUD: all
+    run:
+      config: Debug
+  NowPlayingHUDKitTests:
+    build:
+      targets:
+        NowPlayingHUDKitTests: all
+    run:
+      config: Debug

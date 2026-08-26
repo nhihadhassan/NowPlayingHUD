@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>@APP_NAME@</string>
+	<key>CFBundleDisplayName</key>
+	<string>@APP_NAME@</string>
+	<key>CFBundleExecutable</key>
+	<string>@APP_NAME@</string>
+	<key>CFBundleIdentifier</key>
+	<string>@BUNDLE_ID@</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@APP_VERSION@</string>
+	<key>CFBundleVersion</key>
+	<string>@APP_BUILD@</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+
+	<!-- Menu-bar/agent app: no Dock icon, no Cmd-Tab entry. Reinforced at runtime by
+	     NSApplication.setActivationPolicy(.accessory) in AppDelegate. -->
+	<key>LSUIElement</key>
+	<true/>
+
+	<!-- Shown once, the first time this app sends an Apple Event (e.g. the first play/pause),
+	     as the system's own Automation consent dialog. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>@APP_NAME@ needs permission to read the current track and send playback commands (play, pause, skip, seek, volume) to Spotify and Apple Music. This happens entirely on this Mac — no data is sent anywhere else.</string>
+
+	<key>NSHumanReadableCopyright</key>
+	<string>@APP_NAME@ — a personal, local utility. No warranty.</string>
+
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>

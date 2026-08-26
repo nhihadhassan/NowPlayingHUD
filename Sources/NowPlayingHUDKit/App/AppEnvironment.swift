@@ -10,9 +10,18 @@ public final class AppEnvironment {
     private let artworkCache = ArtworkCache()
     private lazy var artworkService = ArtworkService(cache: artworkCache)
 
-    private let spotifyProvider = SpotifyPlaybackProvider()
-    private let appleMusicProvider = AppleMusicPlaybackProvider()
-    public lazy var playbackCoordinator = PlaybackCoordinator(providers: [spotifyProvider, appleMusicProvider])
+    /// Non-nil only when developer mode is on (`NPHDeveloperMode` default) — see
+    /// `DebugScenarios`. Real Spotify/Apple Music providers are swapped out for a single mock at
+    /// launch in that case, rather than live-toggled, so there's no risk of two providers ever
+    /// registering under the same `PlayerIdentifier`.
+    public let debugMockProvider: MockPlaybackProvider?
+
+    public lazy var playbackCoordinator: PlaybackCoordinator = {
+        if let debugMockProvider {
+            return PlaybackCoordinator(providers: [debugMockProvider])
+        }
+        return PlaybackCoordinator(providers: [SpotifyPlaybackProvider(), AppleMusicPlaybackProvider()])
+    }()
 
     public lazy var hudCoordinator = HUDPresentationCoordinator(
         preferences: preferences, playback: playbackCoordinator, artworkService: artworkService
@@ -27,11 +36,14 @@ public final class AppEnvironment {
 
     private lazy var menuBarController = MenuBarController(
         preferences: preferences, playback: playbackCoordinator, hudCoordinator: hudCoordinator,
+        debugMockProvider: debugMockProvider,
         openSettings: { [weak self] in self?.showSettings() },
         openAbout: { [weak self] in self?.showSettings() }
     )
 
-    public init() {}
+    public init() {
+        debugMockProvider = preferences.developerModeEnabled ? MockPlaybackProvider(identifier: .spotify) : nil
+    }
 
     public func start() {
         playbackCoordinator.selectionMode = preferences.playerSelectionMode

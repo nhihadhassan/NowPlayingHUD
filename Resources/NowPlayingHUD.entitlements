@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- This app intentionally does NOT use the App Sandbox (com.apple.security.app-sandbox is
+	     absent) — see README "Gatekeeper and signing". Sandboxing a personal local utility that
+	     needs to send Apple Events to two other specific apps buys no meaningful security benefit
+	     here and meaningfully complicates the Apple Events path. The automation entitlement below
+	     is declared anyway: it is required when sandboxed, harmless when not, and documents intent
+	     if sandboxing is ever added later. -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>

@@ -14,17 +14,20 @@ public final class MenuBarController: NSObject {
     private let hudCoordinator: HUDPresentationCoordinator
     private let openSettings: () -> Void
     private let openAbout: () -> Void
+    private let debugMockProvider: MockPlaybackProvider?
 
     private var eventTask: Task<Void, Never>?
     private var titleHostingView: NSHostingView<StatusItemContentView>?
 
     public init(
         preferences: PreferencesStore, playback: PlaybackCoordinator, hudCoordinator: HUDPresentationCoordinator,
+        debugMockProvider: MockPlaybackProvider?,
         openSettings: @escaping () -> Void, openAbout: @escaping () -> Void
     ) {
         self.preferences = preferences
         self.playback = playback
         self.hudCoordinator = hudCoordinator
+        self.debugMockProvider = debugMockProvider
         self.openSettings = openSettings
         self.openAbout = openAbout
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -179,6 +182,15 @@ public final class MenuBarController: NSObject {
 
         menu.addItem(.separator())
 
+        if let debugMockProvider {
+            menu.addItem(.separator())
+            let debugItem = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+            debugItem.submenu = buildDebugSubmenu(for: debugMockProvider)
+            menu.addItem(debugItem)
+        }
+
+        menu.addItem(.separator())
+
         let quit = NSMenuItem(title: "Quit NowPlayingHUD", action: #selector(quitAction), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
@@ -209,4 +221,54 @@ public final class MenuBarController: NSObject {
     private func launchActivePlayer() {
         playback.launchApp(for: playback.activeProvider ?? .spotify)
     }
+
+    // MARK: - Debug menu (developer mode only — see PreferencesStore.developerModeEnabled)
+
+    private func buildDebugSubmenu(for mock: MockPlaybackProvider) -> NSMenu {
+        let submenu = NSMenu()
+        let scenarios: [(String, () -> Void)] = [
+            ("Normal Track", { mock.publish(DebugScenarios.normalTrack()) }),
+            ("Very Long Titles", { mock.publish(DebugScenarios.veryLongTitles()) }),
+            ("Missing Artwork", { mock.publish(DebugScenarios.missingArtwork()) }),
+            ("Rapid Skip (5 tracks)", { [weak self] in self?.runRapidSkipDemo(mock) }),
+            ("Varied Colors", { [weak self] in self?.runVariedColorsDemo(mock) })
+        ]
+        for (title, action) in scenarios {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.target = nil
+            item.representedObject = DebugAction(perform: action)
+            item.action = #selector(runDebugAction(_:))
+            item.target = self
+            submenu.addItem(item)
+        }
+        return submenu
+    }
+
+    @objc private func runDebugAction(_ sender: NSMenuItem) {
+        (sender.representedObject as? DebugAction)?.perform()
+    }
+
+    private func runRapidSkipDemo(_ mock: MockPlaybackProvider) {
+        let sequence = DebugScenarios.rapidSkipSequence()
+        for (index, snapshot) in sequence.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.3) {
+                mock.publish(snapshot)
+            }
+        }
+    }
+
+    private func runVariedColorsDemo(_ mock: MockPlaybackProvider) {
+        let sequence = DebugScenarios.variedColors()
+        for (index, snapshot) in sequence.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 1.5) {
+                mock.publish(snapshot)
+            }
+        }
+    }
+}
+
+/// Wraps a closure so it can ride along as an `NSMenuItem.representedObject`.
+private final class DebugAction {
+    let perform: () -> Void
+    init(perform: @escaping () -> Void) { self.perform = perform }
 }
