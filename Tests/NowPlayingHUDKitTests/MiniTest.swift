@@ -53,6 +53,20 @@ final class TestRunner {
         }
     }
 
+    /// Async variant, for exercising actors (`ArtworkCache`, `ArtworkService`).
+    func testAsync(_ name: String, _ body: () async throws -> Void) async {
+        totalRun += 1
+        do {
+            try await body()
+            print("  \u{2705} \(name)")
+        } catch {
+            totalFailed += 1
+            let description = (error as? TestFailure)?.description ?? "\(error)"
+            print("  \u{274C} \(name): \(description)")
+            failureDetails.append("\(name): \(description)")
+        }
+    }
+
     /// Prints a summary and exits the process with a status reflecting pass/fail, mirroring
     /// `swift test`'s own exit-code convention (0 = all passed).
     func summarizeAndExit() -> Never {
