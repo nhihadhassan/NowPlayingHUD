@@ -106,7 +106,7 @@ public final class SpotifyPlaybackProvider: PlaybackProvider, @unchecked Sendabl
     public func refreshSnapshot() async -> Result<PlaybackSnapshot, PlaybackError> {
         guard isRunning else { return .success(.idle()) }
         do {
-            let descriptor = try await bridge.run(SpotifyScript.snapshot)
+            let descriptor = try await runTracked(SpotifyScript.snapshot)
             return .success(SpotifyScript.parseSnapshot(descriptor))
         } catch {
             return .failure(Self.mapError(error))
@@ -123,10 +123,35 @@ public final class SpotifyPlaybackProvider: PlaybackProvider, @unchecked Sendabl
             return .failure(.unsupported)
         }
         do {
-            try await bridge.run(script)
+            try await runTracked(script)
             return .success(())
         } catch {
             return .failure(Self.mapError(error))
+        }
+    }
+
+    /// While Automation permission is still undetermined, sending an Apple Event makes macOS
+    /// show its own system consent dialog and hold the reply until the user responds to it —
+    /// which routinely takes longer than the couple of seconds we budget for a normal, already-
+    /// authorized round trip. Widen the deadline just for that one-time case so the first-ever
+    /// prompt isn't abandoned mid-dialog; once a verdict exists, calls go back to the fast path.
+    private func consentAwareTimeout() -> TimeInterval? {
+        AutomationPermissionService.shared.status(for: identifier) == .notDetermined ? 60 : nil
+    }
+
+    /// Runs `script` and records what actually happened with `AutomationPermissionService` —
+    /// see its doc comment for why the OS's own status query can't be trusted alone.
+    @discardableResult
+    private func runTracked(_ script: String) async throws -> NSAppleEventDescriptor {
+        do {
+            let descriptor = try await bridge.run(script, timeout: consentAwareTimeout())
+            AutomationPermissionService.shared.recordObservedResult(for: identifier, outcome: .authorized)
+            return descriptor
+        } catch {
+            if Self.mapError(error) == .automationDenied {
+                AutomationPermissionService.shared.recordObservedResult(for: identifier, outcome: .denied)
+            }
+            throw error
         }
     }
 
@@ -159,7 +184,7 @@ public final class SpotifyPlaybackProvider: PlaybackProvider, @unchecked Sendabl
         }
         let script = estimatedPosition > restartThreshold ? SpotifyScript.seek(to: 0) : SpotifyScript.previous
         do {
-            try await bridge.run(script)
+            try await runTracked(script)
             return .success(())
         } catch {
             return .failure(Self.mapError(error))

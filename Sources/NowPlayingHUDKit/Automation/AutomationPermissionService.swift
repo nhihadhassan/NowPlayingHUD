@@ -1,6 +1,7 @@
 import Foundation
 import CoreServices
 import AppKit
+import os
 
 /// The Automation (Apple Events) permission state for one target application, as reported by
 /// `AEDeterminePermissionToAutomateTarget`.
@@ -29,12 +30,30 @@ public enum AutomationStatus: Sendable, Equatable {
 public final class AutomationPermissionService: @unchecked Sendable {
     public static let shared = AutomationPermissionService()
 
+    /// What a real Apple Event just told us, per player — keyed on ground truth rather than the
+    /// read-only OS query below, which was observed empirically (on an ad-hoc-signed build) to
+    /// keep reporting `.notDetermined` indefinitely even while genuine Apple Events to the same
+    /// target were succeeding in milliseconds. Providers call `recordObservedResult` immediately
+    /// after every real `AppleEventBridge` round trip, so this always reflects what actually just
+    /// happened rather than a system API that doesn't seem to track this app's true grant.
+    private let observed = OSAllocatedUnfairLock<[PlayerIdentifier: AutomationStatus]>(initialState: [:])
+
     private init() {}
 
-    /// Non-prompting status check. Safe to call frequently (e.g. each time Settings appears).
+    /// Status to show the user. Prefers a real, freshly-observed outcome; falls back to the
+    /// OS's own (sometimes stale) read-only check only when we have no observation yet — e.g.
+    /// before the very first Apple Event this launch has attempted.
     public func status(for player: PlayerIdentifier) -> AutomationStatus {
         guard isRunning(player) else { return .targetNotRunning }
+        if let observedStatus = observed.withLock({ $0[player] }) {
+            return observedStatus
+        }
+        return systemStatus(for: player)
+    }
 
+    /// The non-prompting `AEDeterminePermissionToAutomateTarget` read, kept as a fallback and for
+    /// diagnostics, but no longer trusted as the sole source of truth — see `observed` above.
+    private func systemStatus(for player: PlayerIdentifier) -> AutomationStatus {
         let target = NSAppleEventDescriptor(bundleIdentifier: player.bundleIdentifier)
         let result = AEDeterminePermissionToAutomateTarget(target.aeDesc, typeWildCard, typeWildCard, false)
 
@@ -50,6 +69,14 @@ public final class AutomationPermissionService: @unchecked Sendable {
         default:
             return .unknown(result)
         }
+    }
+
+    /// Called by a provider immediately after a real Apple Event completes. Only genuine success
+    /// and genuine `errAEEventNotPermitted` denials are recorded — a timeout or unrelated error
+    /// leaves the previous observation alone, since neither actually tells us the grant changed.
+    public func recordObservedResult(for player: PlayerIdentifier, outcome: AutomationStatus) {
+        guard outcome == .authorized || outcome == .denied else { return }
+        observed.withLock { $0[player] = outcome }
     }
 
     private func isRunning(_ player: PlayerIdentifier) -> Bool {

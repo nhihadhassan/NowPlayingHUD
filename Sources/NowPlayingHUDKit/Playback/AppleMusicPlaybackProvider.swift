@@ -89,7 +89,7 @@ public final class AppleMusicPlaybackProvider: PlaybackProvider, @unchecked Send
     public func refreshSnapshot() async -> Result<PlaybackSnapshot, PlaybackError> {
         guard isRunning else { return .success(.idle()) }
         do {
-            let descriptor = try await bridge.run(MusicScript.snapshot)
+            let descriptor = try await runTracked(MusicScript.snapshot)
             return .success(MusicScript.parseSnapshot(descriptor))
         } catch {
             return .failure(Self.mapError(error))
@@ -111,7 +111,7 @@ public final class AppleMusicPlaybackProvider: PlaybackProvider, @unchecked Send
         case .setRepeatMode(let mode): script = MusicScript.setRepeat(mode)
         }
         do {
-            try await bridge.run(script)
+            try await runTracked(script)
             return .success(())
         } catch {
             return .failure(Self.mapError(error))
@@ -123,11 +123,33 @@ public final class AppleMusicPlaybackProvider: PlaybackProvider, @unchecked Send
     /// when a Music track's artwork is actually about to be displayed.
     public func fetchArtworkData(trackID: String) async -> Data? {
         guard isRunning else { return nil }
-        guard let descriptor = try? await bridge.run(MusicScript.fetchArtwork(trackID: trackID)) else {
+        guard let descriptor = try? await runTracked(MusicScript.fetchArtwork(trackID: trackID)) else {
             return nil
         }
         let data = descriptor.data
         return data.isEmpty ? nil : data
+    }
+
+    /// See `SpotifyPlaybackProvider.consentAwareTimeout()` — same rationale, same one-time
+    /// widening while the system's own consent dialog might be waiting on the user.
+    private func consentAwareTimeout() -> TimeInterval? {
+        AutomationPermissionService.shared.status(for: identifier) == .notDetermined ? 60 : nil
+    }
+
+    /// See `SpotifyPlaybackProvider.runTracked(_:)` — records the real outcome of each Apple
+    /// Event so Settings reflects reality instead of the OS's own unreliable status query.
+    @discardableResult
+    private func runTracked(_ script: String) async throws -> NSAppleEventDescriptor {
+        do {
+            let descriptor = try await bridge.run(script, timeout: consentAwareTimeout())
+            AutomationPermissionService.shared.recordObservedResult(for: identifier, outcome: .authorized)
+            return descriptor
+        } catch {
+            if Self.mapError(error) == .automationDenied {
+                AutomationPermissionService.shared.recordObservedResult(for: identifier, outcome: .denied)
+            }
+            throw error
+        }
     }
 
     private static func mapError(_ error: Error) -> PlaybackError {

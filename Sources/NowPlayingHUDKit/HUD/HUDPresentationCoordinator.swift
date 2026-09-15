@@ -35,7 +35,8 @@ public final class HUDPresentationCoordinator: HUDInteracting {
     private var sleepObserver: NSObjectProtocol?
 
     private var lastKnownSnapshot: PlaybackSnapshot?
-    private var lastArtworkKey: String?
+    private var lastArtworkTrackKey: String?
+    private var lastArtworkFetchKey: String?
     private var manualControlDeadline: ContinuousClock.Instant?
 
     /// "Disable automatic HUD temporarily", from the menu bar's context menu. Distinct from
@@ -184,6 +185,13 @@ public final class HUDPresentationCoordinator: HUDInteracting {
     // MARK: - Playback events
 
     private func handle(_ event: PlaybackCoordinatorEvent) {
+        // Significance is computed here, from this coordinator's own `lastKnownSnapshot`,
+        // rather than trusting `event.isSignificant` (computed independently inside
+        // `PlaybackCoordinator`, against its own separately-tracked `currentSnapshot`). Two
+        // objects each keeping a "previous snapshot" for the same logical stream of events is a
+        // real desync risk — this way there is exactly one source of truth for "did anything
+        // meaningful change", which this coordinator already needs to compute `changeKind` from.
+        let isSignificant = event.snapshot.isSignificantChange(from: lastKnownSnapshot)
         let changeKind: PlaybackChangeKind
         if let deadline = manualControlDeadline, ContinuousClock.now < deadline {
             changeKind = .manualControl
@@ -196,7 +204,7 @@ public final class HUDPresentationCoordinator: HUDInteracting {
         loadArtworkIfNeeded(for: event.snapshot.track)
 
         let shouldPresent = HUDPresentationPolicy.shouldPresent(
-            isSignificant: event.isSignificant,
+            isSignificant: isSignificant,
             changeKind: changeKind,
             automaticHUDEnabled: preferences.automaticHUDEnabled,
             temporarilyDisabled: isTemporarilyDisabled,
@@ -216,17 +224,33 @@ public final class HUDPresentationCoordinator: HUDInteracting {
         return NSWorkspace.shared.frontmostApplication?.bundleIdentifier == provider.bundleIdentifier
     }
 
+    /// Called on every playback event, significant or not — Spotify's two-phase update means
+    /// this runs once for the fast, notification-derived snapshot (which never carries an
+    /// artwork source) and again moments later for the Apple-Event-enriched one (which does).
+    /// The dedup key therefore has to capture *both* the track and the specific artwork source,
+    /// not just the track: keying on track identity alone would let the fast-path call's
+    /// `.none` source "claim" the track and silently swallow the real fetch when the enriched
+    /// source arrives right after.
     private func loadArtworkIfNeeded(for track: Track?) {
         guard let track else {
             artworkTask?.cancel()
-            lastArtworkKey = nil
+            lastArtworkTrackKey = nil
+            lastArtworkFetchKey = nil
             contentModel.artworkImage = nil
             contentModel.accent = nil
             return
         }
-        let key = "\(track.provider.rawValue)|\(track.id)"
-        guard key != lastArtworkKey else { return }
-        lastArtworkKey = key
+        let trackKey = "\(track.provider.rawValue)|\(track.id)"
+        if trackKey != lastArtworkTrackKey {
+            lastArtworkTrackKey = trackKey
+            lastArtworkFetchKey = nil
+            artworkTask?.cancel()
+            contentModel.artworkImage = nil
+            contentModel.accent = nil
+        }
+        guard let fetchKey = Self.artworkFetchKey(trackKey: trackKey, source: track.artwork),
+              fetchKey != lastArtworkFetchKey else { return }
+        lastArtworkFetchKey = fetchKey
         artworkTask?.cancel()
         artworkTask = Task { [weak self] in
             guard let self else { return }
@@ -236,6 +260,17 @@ public final class HUDPresentationCoordinator: HUDInteracting {
             guard !Task.isCancelled else { return }
             self.contentModel.artworkImage = image
             self.contentModel.accent = image.flatMap { AccentExtractor.extractAccent(from: $0) }
+        }
+    }
+
+    /// `nil` when there's nothing fetchable yet (`.none`); otherwise a key unique to this exact
+    /// track *and* artwork source, so a later call for the same track with a newly-supplied
+    /// source is never mistaken for a duplicate of an earlier no-op call.
+    private static func artworkFetchKey(trackKey: String, source: ArtworkSource) -> String? {
+        switch source {
+        case .none: return nil
+        case .remote(let url): return "\(trackKey)|\(url.absoluteString)"
+        case .appleEventBytes(let cacheKey): return "\(trackKey)|\(cacheKey)"
         }
     }
 

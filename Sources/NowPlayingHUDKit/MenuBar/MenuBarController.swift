@@ -81,14 +81,21 @@ public final class MenuBarController: NSObject {
         if preferences.menuBarDisplayMode == .iconOnly {
             titleHostingView?.removeFromSuperview()
             titleHostingView = nil
+            // The glyph itself never changes shape — a menu bar icon's silhouette is how users
+            // find it at a glance, and swapping it on every play/pause would undermine that.
+            // State is instead signaled the standard AppKit way, by dimming the template image
+            // (`appearsDisabled`) while paused, which is subtle by default yet still genuinely
+            // reflects play/pause per the brief.
             button.image = NSImage(
-                systemSymbolName: isPlaying ? "music.note" : "music.note",
-                accessibilityDescription: "NowPlayingHUD"
+                systemSymbolName: "music.note",
+                accessibilityDescription: isPlaying ? "NowPlayingHUD — Playing" : "NowPlayingHUD — Paused"
             )
             button.image?.isTemplate = true
+            button.appearsDisabled = !isPlaying
             button.title = ""
         } else {
             button.image = nil
+            button.appearsDisabled = false
             button.title = ""
             let rootView = StatusItemContentView(mode: preferences.menuBarDisplayMode, track: snapshot.track, isPlaying: isPlaying)
             if let existing = titleHostingView {

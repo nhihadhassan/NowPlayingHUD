@@ -90,6 +90,14 @@ public final class PlaybackCoordinator {
         return await provider.perform(command)
     }
 
+    /// Sends `command` straight to a specific provider, bypassing "active provider" routing.
+    /// Used by Settings' "Test Connection" actions, which need to probe a named player
+    /// regardless of which one (if any) is currently the active one.
+    public func perform(_ command: PlaybackCommand, on player: PlayerIdentifier) async -> Result<Void, PlaybackError> {
+        guard let provider = providers[player] else { return .failure(.playerNotRunning) }
+        return await provider.perform(command)
+    }
+
     /// Fetches raw Apple Music artwork bytes for `trackID`, if the active/relevant provider
     /// supports it. Returns `nil` for Spotify tracks (which use `ArtworkSource.remote` instead).
     public func fetchAppleMusicArtwork(trackID: String) async -> Data? {

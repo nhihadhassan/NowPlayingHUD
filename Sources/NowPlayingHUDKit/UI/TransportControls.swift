@@ -56,6 +56,7 @@ struct SecondaryControlsRow: View {
     var shuffle: Bool
     var repeatMode: RepeatMode
     var capabilities: PlayerCapabilities
+    var tint: Color = .accentColor
     var onVolumeChange: (Int) -> Void
     var onToggleShuffle: () -> Void
     var onCycleRepeat: () -> Void
@@ -68,23 +69,27 @@ struct SecondaryControlsRow: View {
                     .accessibilityValue(shuffle ? "On" : "Off")
             }
             if capabilities.contains(.volume) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: volumeSymbol)
-                        .font(.caption)
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
-                        .frame(width: 14)
-                    Slider(
-                        value: Binding(
-                            get: { Double(volume) },
-                            set: { onVolumeChange(Int($0.rounded())) }
-                        ),
-                        in: 0...100
+                        .frame(width: 13)
+                        .contentTransition(.symbolEffect(.replace))
+                    CapsuleSlider(
+                        fraction: Double(volume) / 100, tint: tint, isEnabled: true,
+                        onCommit: { onVolumeChange(Int(($0 * 100).rounded())) }
                     )
-                    .controlSize(.mini)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Volume")
                 .accessibilityValue("\(volume) percent")
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: onVolumeChange(min(100, volume + 5))
+                    case .decrement: onVolumeChange(max(0, volume - 5))
+                    @unknown default: break
+                    }
+                }
             }
             if capabilities.contains(.repeatAll) || capabilities.contains(.repeatOne) {
                 ToggleGlyphButton(systemName: repeatMode.symbolName, isActive: repeatMode.isActive, action: onCycleRepeat)
@@ -101,6 +106,56 @@ struct SecondaryControlsRow: View {
         case 34..<67: return "speaker.wave.2.fill"
         default: return "speaker.wave.3.fill"
         }
+    }
+}
+
+/// The capsule-track-plus-circular-handle visual shared by the progress scrubber and the volume
+/// control, so both read as one design language rather than a custom scrubber next to a stock
+/// `Slider`. Commits its value only when the drag ends — the same discipline `ScrubberView`
+/// already used for seeking, now applied to volume too, so dragging the volume slider can't flood
+/// the Apple Event bridge with a `set sound volume` call per pixel of movement.
+struct CapsuleSlider: View {
+    var fraction: Double
+    var tint: Color
+    var isEnabled: Bool
+    var trackHeight: CGFloat = 4
+    var handleDiameter: CGFloat = 10
+    var onCommit: (Double) -> Void
+
+    @State private var dragFraction: Double?
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let shown = (dragFraction ?? fraction).clamped(to: 0...1)
+
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary).frame(height: trackHeight)
+                Capsule().fill(tint).frame(width: max(0, width * shown), height: trackHeight)
+                Circle()
+                    .fill(tint)
+                    .frame(width: handleDiameter, height: handleDiameter)
+                    .shadow(color: .black.opacity(0.25), radius: 1.5, y: 0.5)
+                    .offset(x: max(0, min(width, width * shown)) - handleDiameter / 2)
+                    .opacity(isEnabled ? 1 : 0)
+                    .scaleEffect(dragFraction != nil ? 1.15 : 1)
+                    .animation(.easeOut(duration: 0.12), value: dragFraction != nil)
+            }
+            .frame(height: max(trackHeight, handleDiameter))
+            .contentShape(Rectangle())
+            .gesture(
+                isEnabled ?
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in dragFraction = (value.location.x / width).clamped(to: 0...1) }
+                    .onEnded { value in
+                        let final = (value.location.x / width).clamped(to: 0...1)
+                        onCommit(final)
+                        dragFraction = nil
+                    }
+                : nil
+            )
+        }
+        .frame(height: max(trackHeight, handleDiameter))
     }
 }
 

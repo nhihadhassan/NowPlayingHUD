@@ -134,16 +134,16 @@ public final class PreferencesStore {
         hoverToExpand = defaults.object(forKey: PreferenceKeys.hoverToExpand) as? Bool ?? true
         hoverDismissDelaySeconds = defaults.object(forKey: PreferenceKeys.hoverDismissDelaySeconds) as? Double ?? 1.5
         showOnTrackChange = defaults.object(forKey: PreferenceKeys.showOnTrackChange) as? Bool ?? true
-        showOnPlayResume = defaults.object(forKey: PreferenceKeys.showOnPlayResume) as? Bool ?? false
+        showOnPlayResume = defaults.object(forKey: PreferenceKeys.showOnPlayResume) as? Bool ?? true
         showOnPause = defaults.object(forKey: PreferenceKeys.showOnPause) as? Bool ?? false
         showOnManualControl = defaults.object(forKey: PreferenceKeys.showOnManualControl) as? Bool ?? true
 
         showAlbumArt = defaults.object(forKey: PreferenceKeys.showAlbumArt) as? Bool ?? true
         showTitle = defaults.object(forKey: PreferenceKeys.showTitle) as? Bool ?? true
         showArtist = defaults.object(forKey: PreferenceKeys.showArtist) as? Bool ?? true
-        showAlbum = defaults.object(forKey: PreferenceKeys.showAlbum) as? Bool ?? false
+        showAlbum = defaults.object(forKey: PreferenceKeys.showAlbum) as? Bool ?? true
         showProgress = defaults.object(forKey: PreferenceKeys.showProgress) as? Bool ?? true
-        showTime = defaults.object(forKey: PreferenceKeys.showTime) as? Bool ?? false
+        showTime = defaults.object(forKey: PreferenceKeys.showTime) as? Bool ?? true
         showControls = defaults.object(forKey: PreferenceKeys.showControls) as? Bool ?? true
 
         hudStyle = (defaults.string(forKey: PreferenceKeys.hudStyle)).flatMap(HUDVisualStyle.init) ?? .glass

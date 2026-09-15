@@ -10,47 +10,13 @@ struct ScrubberView: View {
     var isEnabled: Bool
     var onSeek: (TimeInterval) -> Void
 
-    @State private var dragFraction: Double?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private let trackHeight: CGFloat = 4
-    private let handleDiameter: CGFloat = 10
-
     var body: some View {
         TimelineView(.periodic(from: .now, by: isEnabled ? 1.0 / 20.0 : 3600)) { _ in
-            GeometryReader { proxy in
-                let liveFraction = estimator.fractionComplete(at: .now)
-                let fraction = dragFraction ?? liveFraction
-                let width = proxy.size.width
-
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.quaternary).frame(height: trackHeight)
-                    Capsule().fill(tint).frame(width: max(0, width * fraction), height: trackHeight)
-                    Circle()
-                        .fill(tint)
-                        .frame(width: handleDiameter, height: handleDiameter)
-                        .shadow(radius: 1, y: 0.5)
-                        .offset(x: max(0, min(width, width * fraction)) - handleDiameter / 2)
-                        .opacity(isEnabled ? 1 : 0)
-                }
-                .frame(height: max(trackHeight, handleDiameter))
-                .contentShape(Rectangle())
-                .gesture(
-                    isEnabled ?
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            dragFraction = (value.location.x / width).clamped(to: 0...1)
-                        }
-                        .onEnded { value in
-                            let finalFraction = (value.location.x / width).clamped(to: 0...1)
-                            onSeek(finalFraction * estimator.duration)
-                            dragFraction = nil
-                        }
-                    : nil
-                )
-            }
+            CapsuleSlider(
+                fraction: estimator.fractionComplete(at: .now), tint: tint, isEnabled: isEnabled,
+                onCommit: { onSeek($0 * estimator.duration) }
+            )
         }
-        .frame(height: max(trackHeight, handleDiameter))
         .accessibilityElement()
         .accessibilityLabel("Playback position")
         .accessibilityValue(TimeFormatter.string(from: estimator.position(at: .now)))
@@ -66,7 +32,7 @@ struct ScrubberView: View {
 }
 
 extension Double {
-    fileprivate func clamped(to range: ClosedRange<Double>) -> Double {
+    func clamped(to range: ClosedRange<Double>) -> Double {
         Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }

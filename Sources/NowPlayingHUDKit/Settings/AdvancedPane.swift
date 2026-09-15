@@ -51,18 +51,31 @@ struct AdvancedPane: View {
     }
 
     /// There's no dedicated "ping" command, so this uses a harmless, functionally invisible
-    /// round trip — setting the volume to its own current value — purely to force an Apple
-    /// Event exchange (and, the first time, the system consent prompt) and then re-reads status.
+    /// round trip — setting the volume to its own current value — purely to force a real Apple
+    /// Event exchange (and, the first time, the system consent prompt). Goes straight to the
+    /// Spotify provider rather than through `playback.perform`'s "active provider" routing, so
+    /// this genuinely tests Spotify even if it isn't the currently active player, and reports
+    /// what this attempt itself actually returned rather than re-deriving it from a status read.
     private func testSpotifyConnection() {
+        let awaitingFirstConsent = spotifyStatus == .notDetermined
         isTesting = true
-        testResult = nil
+        testResult = awaitingFirstConsent
+            ? "Look for a system dialog asking to control Spotify, then click OK…"
+            : nil
         Task {
-            _ = await playback.perform(.setVolume(playback.currentSnapshot.volume))
-            try? await Task.sleep(for: .seconds(0.3))
+            let currentVolume = playback.currentSnapshot.track != nil ? playback.currentSnapshot.volume : 50
+            let result = await playback.perform(.setVolume(currentVolume), on: .spotify)
             refreshStatuses()
-            testResult = spotifyStatus == .authorized
-                ? "Connected successfully."
-                : "Could not verify a connection — see status above."
+            switch result {
+            case .success:
+                testResult = "Connected successfully."
+            case .failure(.playerNotRunning):
+                testResult = "Spotify isn't running — open it and try again."
+            case .failure(.automationDenied):
+                testResult = "Permission denied — see status above."
+            case .failure:
+                testResult = "Could not verify a connection — see status above."
+            }
             isTesting = false
         }
     }

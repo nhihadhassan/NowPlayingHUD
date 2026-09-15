@@ -12,7 +12,11 @@ struct StatusItemContentView: View {
     var body: some View {
         switch mode {
         case .iconOnly:
-            Image(systemName: isPlaying ? "music.note" : "music.note")
+            // Unreachable in practice — `MenuBarController` renders `.iconOnly` directly on the
+            // button's own `image`/`appearsDisabled`, never through this hosted view. Kept only
+            // so the switch stays exhaustive without a `default:` that would silently swallow a
+            // real future case.
+            EmptyView()
         case .animatedIndicator:
             Image(systemName: "waveform")
                 .symbolEffect(.variableColor.iterative, isActive: isPlaying)

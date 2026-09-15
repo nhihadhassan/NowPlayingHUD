@@ -38,7 +38,7 @@ public struct HUDDisplayOptions: Equatable {
 
     public static let `default` = HUDDisplayOptions(
         style: .glass, size: .medium, showAlbumArt: true, showTitle: true, showArtist: true,
-        showAlbum: false, showProgress: true, showTime: false, showControls: true, hoverToExpand: true,
+        showAlbum: true, showProgress: true, showTime: true, showControls: true, hoverToExpand: true,
         accentFromArtwork: true, primaryClickAction: .openInPlayer
     )
 }
@@ -100,6 +100,7 @@ public struct HUDRootView: View {
         HStack(spacing: 12) {
             if options.showAlbumArt {
                 ArtworkThumbnail(image: content.artworkImage, size: options.size.artworkSize, cornerRadius: metrics.cornerRadius * 0.55)
+                    .shadow(color: .black.opacity(0.24), radius: 4, y: 2)
             }
             VStack(alignment: .leading, spacing: metrics.contentSpacing) {
                 if options.showTitle {
@@ -123,6 +124,12 @@ public struct HUDRootView: View {
                 if options.showProgress && !isExpanded {
                     ProgressBarView(estimator: content.progressEstimator, tint: accentColor)
                         .padding(.top, 2)
+                    if options.showTime {
+                        HStack {
+                            Spacer(minLength: 0)
+                            RemainingTimeLabel(estimator: content.progressEstimator)
+                        }
+                    }
                 }
             }
             .layoutPriority(1)
@@ -176,7 +183,7 @@ public struct HUDRootView: View {
             }
             SecondaryControlsRow(
                 volume: content.volume, shuffle: content.shuffle, repeatMode: content.repeatMode,
-                capabilities: content.capabilities,
+                capabilities: content.capabilities, tint: accentColor,
                 onVolumeChange: { interactor?.perform(.setVolume($0)) },
                 onToggleShuffle: { interactor?.perform(.setShuffle(!content.shuffle)) },
                 onCycleRepeat: { interactor?.perform(.setRepeatMode(content.repeatMode.next(supporting: content.capabilities))) }

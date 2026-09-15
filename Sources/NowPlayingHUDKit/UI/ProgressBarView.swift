@@ -44,6 +44,21 @@ struct TimeLabelsView: View {
     }
 }
 
+/// Just the "-M:SS" remaining-time label, for the compact (non-expanded) HUD — a single small
+/// number rather than `TimeLabelsView`'s full elapsed/remaining pair, which is reserved for the
+/// wider expanded layout next to the scrubber.
+struct RemainingTimeLabel: View {
+    var estimator: ProgressEstimator
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1.0)) { _ in
+            Text("-" + TimeFormatter.string(from: max(0, estimator.duration - estimator.position(at: .now))))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 enum TimeFormatter {
     static func string(from seconds: TimeInterval) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
