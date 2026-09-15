@@ -1,5 +1,8 @@
 # NowPlayingHUD
 
+[![GitHub](https://img.shields.io/badge/GitHub-nhihadhassan%2FNowPlayingHUD-181717?logo=github)](https://github.com/nhihadhassan/NowPlayingHUD)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A tiny, native macOS menu-bar utility that shows a brief, polished Now Playing popup whenever
 your Spotify (or Apple Music) track changes — the Mac equivalent of the media popup Windows
 shows, but built to feel like something Apple could have shipped.
